@@ -2,11 +2,114 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a3a5c">
 <title>Event and Attendance Tracker</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1c2e; color: #e8eef5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 16px; }
+header { text-align: center; margin: 12px 0 16px; }
+header h1 { font-size: 20px; font-weight: 700; }
+header p { font-size: 13px; color: #8aa0b8; margin-top: 4px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; width: 100%; max-width: 420px; }
+.tab { flex: 1; padding: 12px; border: none; border-radius: 10px; background: #1a2d44; color: #8aa0b8; font-size: 14px; font-weight: 600; }
+.tab.active { background: #4a90d9; color: #fff; }
+.card { background: #1a2d44; border-radius: 16px; padding: 20px; width: 100%; max-width: 420px; }
+label { display: block; font-size: 13px; color: #8aa0b8; margin-bottom: 6px; font-weight: 600; }
+.field-row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 16px; }
+.field-row input, .field-row select, .field-row textarea { flex: 1; margin-bottom: 0; }
+input, select, textarea { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #2d4a6b; background: #0f1c2e; color: #e8eef5; font-size: 16px; margin-bottom: 16px; }
+textarea { min-height: 72px; }
+.mic-btn, .gps-btn { width: 52px; flex: 0 0 52px; border: none; border-radius: 10px; background: #2d4a6b; color: #e8eef5; font-size: 18px; }
+.mic-btn.recording { background: #c0392b; color: #fff; }
+.btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.btn-primary { background: #4a90d9; color: #fff; }
+.btn-secondary { background: #2d4a6b; color: #e8eef5; }
+.status { font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; display: none; }
+.status.show { display: block; }
+.status.ok { background: #1e4d2b; color: #7dcea0; }
+.status.err { background: #4d1e1e; color: #f5b7b1; }
+.status.info { background: #1e3a4d; color: #85c1e9; }
+.qr-wrap { text-align: center; margin: 8px 0 12px; }
+#qrBox, .dq-qr { display: inline-block; background: #fff; border-radius: 12px; padding: 12px; min-width: 200px; min-height: 200px; }
+.meta, .small, .count { font-size: 12px; color: #8aa0b8; text-align: center; margin-bottom: 12px; }
+.hidden { display: none !important; }
+.record { background: #0f1c2e; border-radius: 10px; padding: 12px; margin-bottom: 8px; font-size: 12px; border-left: 3px solid #4a90d9; }
+.day-qr { background: #0f1c2e; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #2d4a6b; }
+.day-qr h4 { font-size: 14px; margin-bottom: 8px; }
+</style>
 </head>
 <body>
-<p>Loading full app next. If you see only this, the upload was truncated.</p>
-<script>location.replace('https://cdn.jsdelivr.net/gh/tinofilstar/event-attendance-tracker@main/index.html');</script>
+<header>
+  <h1>Event and Attendance Tracker</h1>
+  <p>Classes, events and practicum</p>
+</header>
+<div class="tabs">
+  <button class="tab active" id="lecturerTab" type="button">Lecturer</button>
+  <button class="tab" id="hostTab" type="button">Host</button>
+  <button class="tab" id="studentTab" type="button">Student</button>
+</div>
+<div class="card" id="lecturerCard">
+  <div id="lecturerStatus" class="status"></div>
+  <label for="subjectSelect">Subject</label>
+  <select id="subjectSelect"></select>
+  <div class="qr-wrap"><div id="qrBox"></div></div>
+  <div class="meta" id="slotMeta">No active slot</div>
+  <p class="small">Students scan this with the phone Camera app. It opens a link, not Google.</p>
+  <button class="btn btn-secondary" id="refreshBtn" type="button">Refresh QR</button>
+  <button class="btn btn-secondary" id="testBtn" type="button">Test Mode (force slot)</button>
+</div>
+<div class="card hidden" id="hostCard">
+  <div id="hostStatus" class="status"></div>
+  <label for="eventTitle">Event title</label>
+  <div class="field-row">
+    <input id="eventTitle" type="text" placeholder="Writer's Retreat" autocomplete="off">
+    <button class="mic-btn" data-target="eventTitle" type="button">🎤</button>
+  </div>
+  <label for="eventStartDate">Start date</label>
+  <input id="eventStartDate" type="date">
+  <label for="eventEndDate">End date</label>
+  <input id="eventEndDate" type="date">
+  <label for="eventStart">Daily start</label>
+  <input id="eventStart" type="time" value="08:30">
+  <label for="eventEnd">Daily end</label>
+  <input id="eventEnd" type="time" value="16:00">
+  <label for="eventLocation">Location</label>
+  <div class="field-row">
+    <input id="eventLocation" type="text" placeholder="A101 or venue" autocomplete="off">
+    <button class="mic-btn" data-target="eventLocation" type="button">🎤</button>
+    <button class="gps-btn" id="gpsBtn" type="button">📍</button>
+  </div>
+  <label for="eventDesc">Description</label>
+  <div class="field-row">
+    <textarea id="eventDesc" placeholder="Optional notes"></textarea>
+    <button class="mic-btn" data-target="eventDesc" type="button">🎤</button>
+  </div>
+  <button class="btn btn-primary" id="hostGenerateBtn" type="button">Generate daily QR codes</button>
+  <div id="hostQrList"></div>
+  <div class="meta" id="hostMeta">No QR yet</div>
+</div>
+<div class="card hidden" id="studentCard">
+  <div id="studentStatus" class="status"></div>
+  <p class="small">Fill your details once. Then scan the lecturer QR with this phone's Camera, or use the button below.</p>
+  <label for="studentId">Student number</label>
+  <div class="field-row">
+    <input id="studentId" type="text" inputmode="numeric" placeholder="2024123456" autocomplete="off">
+    <button class="mic-btn" data-target="studentId" type="button">🎤</button>
+  </div>
+  <label for="studentName">Full name</label>
+  <div class="field-row">
+    <input id="studentName" type="text" placeholder="Jane Doe" autocomplete="off">
+    <button class="mic-btn" data-target="studentName" type="button">🎤</button>
+  </div>
+  <button class="btn btn-primary" id="confirmScanBtn" type="button">Record scanned session</button>
+  <button class="btn btn-secondary" id="cameraBtn" type="button">Scan with this phone camera</button>
+  <div id="reader" class="hidden" style="width:100%;margin-bottom:12px;"></div>
+  <div id="records"></div>
+  <div id="count" class="count"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
