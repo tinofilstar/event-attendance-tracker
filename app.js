@@ -1,7 +1,7 @@
 (function () {
   "use strict";
   var SECRET = "EAT_SECRET_2026";
-  var APP_BASE = "https://cdn.jsdelivr.net/gh/tinofilstar/event-attendance-tracker@main/index.html";
+  var APP_BASE = "https://htmlpreview.github.io/?https://github.com/tinofilstar/event-attendance-tracker/blob/main/index.html";
   var subjects = {
     FDS102: {
       name: "FDS102 Teaching Studies 1B",
@@ -21,6 +21,8 @@
   var hostMeta = document.getElementById("hostMeta");
   var forceTest = false;
   var pendingToken = "";
+  var hostPics = [];
+  var studentPics = [];
   var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   var recognition = null;
   var activeMicBtn = null;
@@ -50,11 +52,33 @@
     var q = raw.indexOf("?t="); if (q >= 0) return decodeURIComponent(raw.slice(q + 3).split("&")[0]);
     return raw;
   }
-  function drawQR(container, text, size) {
+  function drawQR(container, text) {
     container.innerHTML = "";
-    if (typeof QRCode === "undefined") { container.textContent = "QR library failed. Check internet."; return false; }
-    try { new QRCode(container, { text: text, width: size || 196, height: size || 196, correctLevel: QRCode.CorrectLevel.M }); return true; }
-    catch (e) { container.textContent = "Could not draw QR."; return false; }
+    var img = document.createElement("img");
+    img.alt = "QR";
+    img.src = "https://api.qrserver.com/v1/create-qr-code/?size=196x196&data=" + encodeURIComponent(text);
+    container.appendChild(img);
+    return true;
+  }
+  function renderThumbs(el, arr) {
+    el.innerHTML = "";
+    arr.forEach(function (src) { var im = document.createElement("img"); im.src = src; el.appendChild(im); });
+  }
+  function compressPhoto(file, done) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement("canvas");
+        var w = img.width, h = img.height, max = 800;
+        if (w > max) { h = Math.round(h * max / w); w = max; }
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        done(c.toDataURL("image/jpeg", 0.6));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   }
   function generateQR() {
     var code = subjectSelect.value; var slot = getActiveSlot(code);
@@ -62,7 +86,7 @@
     var exp = Math.floor(Date.now() / 1000) + 1800;
     var payload = code + "|" + slot.start + "|" + slot.end + "|" + slot.room + "|" + exp;
     var token = b64url(payload + "|" + sign(payload));
-    if (!drawQR(qrBox, makeLink(token), 196)) { showStatus(lecturerStatus, "QR library failed. Check internet.", "err"); return; }
+    drawQR(qrBox, makeLink(token));
     var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     slotMeta.textContent = subjects[code].name + " | " + days[slot.day] + " " + slot.start + "-" + slot.end + " | " + slot.room + (forceTest ? " (TEST)" : "");
     hideStatus(lecturerStatus);
@@ -95,9 +119,10 @@
       wrap.className = "day-qr";
       wrap.innerHTML = "<h4>Day " + d.dayNum + " — " + d.date + "</h4><div class=\"meta\">" + start + "–" + end + " | " + loc + "</div><div class=\"dq-qr\"></div>";
       hostQrList.appendChild(wrap);
-      drawQR(wrap.querySelector(".dq-qr"), makeLink(token), 164);
+      drawQR(wrap.querySelector(".dq-qr"), makeLink(token));
     });
-    hostMeta.textContent = title + " | " + days.length + " day(s)";
+    try { localStorage.setItem("eat_host_photos_" + eventId, JSON.stringify(hostPics)); } catch (e) {}
+    hostMeta.textContent = title + " | " + days.length + " day(s) | " + hostPics.length + " photo(s)";
     showStatus(hostStatus, "Generated " + days.length + " daily QR codes.", "ok");
   }
   function switchTab(role) {
@@ -128,7 +153,8 @@
     countEl.textContent = recs.length + " scan(s) on this phone.";
     recs.slice().reverse().forEach(function (r) {
       var d = document.createElement("div"); d.className = "record";
-      d.innerHTML = "<strong>" + (r.studentId || "?") + "</strong> " + (r.studentName || "") + "<div class=\"meta\">" + new Date(r.timestamp).toLocaleString() + " | " + (r.subject || "") + " " + (r.slot || "") + "</div>";
+      var pics = (r.photos || []).map(function (p) { return "<img src=\"" + p + "\" style=\"width:56px;height:56px;object-fit:cover;border-radius:6px;margin:4px 4px 0 0\">"; }).join("");
+      d.innerHTML = "<strong>" + (r.studentId || "?") + "</strong> " + (r.studentName || "") + "<div class=\"meta\">" + new Date(r.timestamp).toLocaleString() + " | " + (r.subject || "") + " " + (r.slot || "") + "</div>" + pics;
       box.appendChild(d);
     });
   }
@@ -160,8 +186,8 @@
     if (!sid) { pendingToken = extractToken(raw); showStatus(studentStatus, "Enter your student number, then tap Record scanned session.", "info"); return; }
     saveProfile();
     var recs = loadRecords();
-    recs.push({ studentId: sid, studentName: sname, subject: info.code === "HOST" ? (info.title || "Event") : info.code, dayNum: info.dayNum || "", slot: (info.start || "") + "-" + (info.end || "") + (info.room ? " " + info.room : ""), timestamp: Date.now() });
-    saveRecords(recs); renderRecords(); pendingToken = "";
+    recs.push({ studentId: sid, studentName: sname, subject: info.code === "HOST" ? (info.title || "Event") : info.code, dayNum: info.dayNum || "", slot: (info.start || "") + "-" + (info.end || "") + (info.room ? " " + info.room : ""), photos: studentPics.slice(), timestamp: Date.now() });
+    saveRecords(recs); renderRecords(); pendingToken = ""; studentPics = []; renderThumbs(document.getElementById("studentPhotoList"), studentPics);
     if (location.hash) history.replaceState(null, "", location.pathname + location.search);
     showStatus(studentStatus, "Attendance recorded.", "ok");
   }
@@ -193,16 +219,30 @@
   document.getElementById("gpsBtn").onclick = useGps;
   document.getElementById("confirmScanBtn").onclick = function () { handleScan(pendingToken || location.hash); };
   document.querySelectorAll(".mic-btn").forEach(function (btn) { btn.onclick = function () { startMic(btn); }; });
+  document.getElementById("hostPhotos").onchange = function (ev) {
+    var files = ev.target.files || []; var i = 0;
+    function next() {
+      if (i >= files.length) { renderThumbs(document.getElementById("hostPhotoList"), hostPics); return; }
+      if (hostPics.length >= 5) { showStatus(hostStatus, "Maximum 5 photos.", "info"); return; }
+      compressPhoto(files[i++], function (data) { hostPics.push(data); next(); });
+    }
+    next();
+  };
+  document.getElementById("studentPhoto").onchange = function (ev) {
+    var file = ev.target.files && ev.target.files[0]; if (!file) return;
+    if (studentPics.length >= 5) { showStatus(studentStatus, "Maximum 5 photos.", "info"); return; }
+    compressPhoto(file, function (data) { studentPics.push(data); renderThumbs(document.getElementById("studentPhotoList"), studentPics); });
+  };
   var html5Qr = null;
   document.getElementById("cameraBtn").onclick = function () {
     var readerEl = document.getElementById("reader");
     if (html5Qr) { html5Qr.stop().catch(function () {}); html5Qr = null; readerEl.classList.add("hidden"); this.textContent = "Scan with this phone camera"; return; }
-    if (typeof Html5Qrcode === "undefined") { showStatus(studentStatus, "Camera library needs internet.", "err"); return; }
+    if (typeof Html5Qrcode === "undefined") { showStatus(studentStatus, "Use the iPhone Camera app on the lecturer QR instead.", "info"); return; }
     readerEl.classList.remove("hidden"); html5Qr = new Html5Qrcode("reader"); var btn = this;
     html5Qr.start({ facingMode: "environment" }, { fps: 8, qrbox: { width: 220, height: 220 } }, function (decoded) {
       html5Qr.stop().catch(function () {}); html5Qr = null; readerEl.classList.add("hidden"); btn.textContent = "Scan with this phone camera"; handleScan(decoded);
     }, function () {}).then(function () { btn.textContent = "Stop camera"; showStatus(studentStatus, "Point at the lecturer QR.", "info"); }).catch(function () {
-      readerEl.classList.add("hidden"); html5Qr = null; showStatus(studentStatus, "Camera blocked. On iPhone open this page in Safari, then Allow Camera.", "err");
+      readerEl.classList.add("hidden"); html5Qr = null; showStatus(studentStatus, "In-app camera blocked. Use the iPhone Camera app.", "err");
     });
   };
   loadProfile(); renderRecords(); generateQR();
