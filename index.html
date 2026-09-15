@@ -21,7 +21,6 @@ label { display: block; font-size: 13px; color: #8aa0b8; margin-bottom: 6px; fon
 input, select, textarea { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #2d4a6b; background: #0f1c2e; color: #e8eef5; font-size: 16px; margin-bottom: 16px; }
 textarea { min-height: 72px; }
 .mic-btn, .gps-btn { width: 52px; flex: 0 0 52px; border: none; border-radius: 10px; background: #2d4a6b; color: #e8eef5; font-size: 18px; }
-.mic-btn.recording { background: #c0392b; color: #fff; }
 .btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; margin-bottom: 12px; }
 .btn-primary { background: #4a90d9; color: #fff; }
 .btn-secondary { background: #2d4a6b; color: #e8eef5; }
@@ -31,12 +30,14 @@ textarea { min-height: 72px; }
 .status.err { background: #4d1e1e; color: #f5b7b1; }
 .status.info { background: #1e3a4d; color: #85c1e9; }
 .qr-wrap { text-align: center; margin: 8px 0 12px; }
-#qrBox, .dq-qr { display: inline-block; background: #fff; border-radius: 12px; padding: 12px; min-width: 200px; min-height: 200px; }
+#qrBox, .dq-qr { display: inline-block; background: #fff; border-radius: 12px; padding: 8px; }
+#qrBox img, .dq-qr img { display: block; width: 196px; height: 196px; }
 .meta, .small, .count { font-size: 12px; color: #8aa0b8; text-align: center; margin-bottom: 12px; }
 .hidden { display: none !important; }
 .record { background: #0f1c2e; border-radius: 10px; padding: 12px; margin-bottom: 8px; font-size: 12px; border-left: 3px solid #4a90d9; }
 .day-qr { background: #0f1c2e; border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #2d4a6b; }
-.day-qr h4 { font-size: 14px; margin-bottom: 8px; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -55,7 +56,7 @@ textarea { min-height: 72px; }
   <select id="subjectSelect"></select>
   <div class="qr-wrap"><div id="qrBox"></div></div>
   <div class="meta" id="slotMeta">No active slot</div>
-  <p class="small">Students scan this with the phone Camera app. It opens a link, not Google.</p>
+  <p class="small">Open this page in the preview link, then tap Test Mode. Students use the iPhone Camera app on the QR.</p>
   <button class="btn btn-secondary" id="refreshBtn" type="button">Refresh QR</button>
   <button class="btn btn-secondary" id="testBtn" type="button">Test Mode (force slot)</button>
 </div>
@@ -85,13 +86,16 @@ textarea { min-height: 72px; }
     <textarea id="eventDesc" placeholder="Optional notes"></textarea>
     <button class="mic-btn" data-target="eventDesc" type="button">🎤</button>
   </div>
+  <label for="hostPhotos">Event photos (max 5)</label>
+  <input id="hostPhotos" type="file" accept="image/*" capture="environment" multiple>
+  <div class="thumbs" id="hostPhotoList"></div>
   <button class="btn btn-primary" id="hostGenerateBtn" type="button">Generate daily QR codes</button>
   <div id="hostQrList"></div>
   <div class="meta" id="hostMeta">No QR yet</div>
 </div>
 <div class="card hidden" id="studentCard">
   <div id="studentStatus" class="status"></div>
-  <p class="small">Fill your details once. Then scan the lecturer QR with this phone's Camera, or use the button below.</p>
+  <p class="small">Fill details once. Scan the lecturer QR with the iPhone Camera app.</p>
   <label for="studentId">Student number</label>
   <div class="field-row">
     <input id="studentId" type="text" inputmode="numeric" placeholder="2024123456" autocomplete="off">
@@ -102,13 +106,15 @@ textarea { min-height: 72px; }
     <input id="studentName" type="text" placeholder="Jane Doe" autocomplete="off">
     <button class="mic-btn" data-target="studentName" type="button">🎤</button>
   </div>
+  <label for="studentPhoto">Your photo for this session (max 5)</label>
+  <input id="studentPhoto" type="file" accept="image/*" capture="environment">
+  <div class="thumbs" id="studentPhotoList"></div>
   <button class="btn btn-primary" id="confirmScanBtn" type="button">Record scanned session</button>
   <button class="btn btn-secondary" id="cameraBtn" type="button">Scan with this phone camera</button>
   <div id="reader" class="hidden" style="width:100%;margin-bottom:12px;"></div>
   <div id="records"></div>
   <div id="count" class="count"></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="app.js"></script>
 </body>
